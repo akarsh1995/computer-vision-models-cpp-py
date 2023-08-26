@@ -12,6 +12,8 @@ onnx = "*"
 
 [dev-packages]
 pytest = "*"
+tqdm = "*"
+requests = "*"
 
 [requires]
 python_version = "3.11"
