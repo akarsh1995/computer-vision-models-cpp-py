@@ -1,4 +1,5 @@
 #include <iostream>
+#include <torch/nn/modules/activation.h>
 #include <torch/torch.h>
 
 // Define a struct to represent a layer configuration
@@ -26,6 +27,17 @@ const std::vector<LayerConfig> VGG16 = {
     LayerConfig() // Represents max-pooling
 };
 
+const std::vector<LayerConfig> VGG13 = {
+    LayerConfig(64),  LayerConfig(64),
+    LayerConfig(), // Represents max-pooling
+    LayerConfig(128), LayerConfig(128),
+    LayerConfig(), // Represents max-pooling
+    LayerConfig(256), LayerConfig(256),
+    LayerConfig(), // Represents max-pooling
+    LayerConfig(512), LayerConfig(512),
+    LayerConfig(), // Represents max-pooling
+};
+
 // Define a new Module.
 struct Net : torch::nn::Module {
   int in_channels;
@@ -46,6 +58,7 @@ struct Net : torch::nn::Module {
             torch::nn::Conv2d(torch::nn::Conv2dOptions(ic, layer.channels, 3)
                                   .stride(1)
                                   .padding(1)));
+        seq->push_back(torch::nn::ReLU());
         ic = layer.channels;
       } else {
         seq->push_back(
@@ -90,5 +103,8 @@ int main() {
   auto size = {224, 224};
   auto net = Net(input_channels, num_classes, size, VGG16);
   auto result = net.forward(net.gen_random_input());
+
+  auto vgg_13 = Net(input_channels, num_classes, size, VGG13);
+  result = vgg_13.forward(net.gen_random_input());
   assert(result.sizes()[1] == num_classes);
 }
