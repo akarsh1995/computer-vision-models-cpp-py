@@ -77,7 +77,6 @@ class VGGNet(nn.Module):
                             stride=1,
                             padding=1,
                         ),
-                        nn.BatchNorm2d(layer),
                         nn.ReLU(),
                     ]
                 )
