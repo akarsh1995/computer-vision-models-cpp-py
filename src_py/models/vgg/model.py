@@ -39,27 +39,26 @@ class VGGNet(nn.Module):
         self.in_channels = in_channels
         self.num_classes = num_classes
         self.im_shape = im_shape
-        self.conv_layers = self.create_conv_layers(vgg_map)
-        input_features_after_convs = (
-            self.conv_layers(torch.rand(1, in_channels, im_shape[0], im_shape[1]))
-            .flatten(1)
-            .shape[1]
-        )
-        self.fcs = nn.Sequential(
+        self.features = self.create_conv_layers(vgg_map)
+        self.avgpool = nn.AdaptiveAvgPool2d(output_size=(7, 7))
+        self.classifier = nn.Sequential(
             *[
-                nn.Linear(input_features_after_convs, 4096),
-                nn.ReLU(),
+                nn.Linear(512 * 7 * 7, 4096),
+                nn.ReLU(inplace=True),
                 nn.Dropout(p=0.5),
                 nn.Linear(4096, 4096),
-                nn.ReLU(),
+                nn.ReLU(inplace=True),
                 nn.Dropout(0.5),
                 nn.Linear(4096, self.num_classes),
             ]
         )
 
     def forward(self, x):
-        x = self.conv_layers(x)
-        return self.fcs(x.flatten(1))
+        x = self.features(x)
+        x = self.avgpool(x)
+        x = x.flatten(1)
+        x = self.classifier(x)
+        return x
 
     def create_conv_layers(self, architecture):
         layers: list[nn.modules.Module] = []
@@ -77,7 +76,7 @@ class VGGNet(nn.Module):
                             stride=1,
                             padding=1,
                         ),
-                        nn.ReLU(),
+                        nn.ReLU(inplace=True),
                     ]
                 )
                 in_channels = out_channels

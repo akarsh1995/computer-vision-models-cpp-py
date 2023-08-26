@@ -1,5 +1,4 @@
 #include <iostream>
-#include <torch/nn/modules/activation.h>
 #include <torch/torch.h>
 
 // Define a struct to represent a layer configuration
@@ -58,7 +57,7 @@ struct Net : torch::nn::Module {
             torch::nn::Conv2d(torch::nn::Conv2dOptions(ic, layer.channels, 3)
                                   .stride(1)
                                   .padding(1)));
-        seq->push_back(torch::nn::ReLU());
+        seq->push_back(torch::nn::ReLU(torch::nn::ReLUOptions().inplace(true)));
         ic = layer.channels;
       } else {
         seq->push_back(
@@ -66,26 +65,27 @@ struct Net : torch::nn::Module {
       }
     }
 
-    convs = register_module("convs", seq);
+    avgpool = register_module("avgpool",
+                              torch::nn::AdaptiveAvgPool2d(
+                                  torch::nn::AdaptiveAvgPool2dOptions({7, 7})));
 
-    auto input_features =
-        convs->forward(torch::randn({1, in_channels, im_shape[0], im_shape[1]}))
-            .flatten(1)
-            .sizes()[1];
+    features = register_module("features", seq);
 
     auto fully_connected_layers = torch::nn::Sequential(
-        torch::nn::Linear(input_features, 4096), torch::nn::ReLU(),
+        torch::nn::Linear(512 * 7 * 7, 4096),
+        torch::nn::ReLU(torch::nn::ReLUOptions().inplace(true)),
         torch::nn::Dropout(0.5), torch::nn::Linear(4096, 4096),
-        torch::nn::ReLU(), torch::nn::Dropout(0.5),
-        torch::nn::Linear(4096, num_classes));
+        torch::nn::ReLU(torch::nn::ReLUOptions().inplace(true)),
+        torch::nn::Dropout(0.5), torch::nn::Linear(4096, num_classes));
 
-    fcs = register_module("fcs", fully_connected_layers);
+    classifier = register_module("classifier", fully_connected_layers);
   }
 
   // Implement the Net's algorithm.
   torch::Tensor forward(torch::Tensor x) {
-    x = convs->forward(x);
-    x = fcs->forward(x.flatten(1));
+    x = features->forward(x);
+    x = avgpool->forward(x);
+    x = classifier->forward(x.flatten(1));
     return x;
   }
 
@@ -93,11 +93,13 @@ struct Net : torch::nn::Module {
     return torch::randn({1, in_channels, im_shape[0], im_shape[1]});
   }
 
-  torch::nn::Sequential convs{nullptr}, fcs{nullptr};
+  torch::nn::Sequential features{nullptr}, classifier{nullptr};
+  torch::nn::AdaptiveAvgPool2d avgpool{nullptr};
 };
 
 int main() {
   // Create a new Net.
+
   int num_classes = 1000;
   int input_channels = 3;
   auto size = {224, 224};
