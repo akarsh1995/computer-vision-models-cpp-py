@@ -38,13 +38,13 @@ const std::vector<LayerConfig> VGG13 = {
 };
 
 // Define a new Module.
-struct Net : torch::nn::Module {
+struct NetImpl : torch::nn::Module {
   int in_channels;
   int num_classes;
   const std::vector<int> im_shape;
 
-  Net(int in_channels, int num_classes, std::vector<int> im_shape,
-      std::vector<LayerConfig> vgg_map)
+  NetImpl(int in_channels, int num_classes, std::vector<int> im_shape,
+          std::vector<LayerConfig> vgg_map)
       : in_channels(in_channels), num_classes(num_classes), im_shape(im_shape) {
 
     auto seq = torch::nn::Sequential();
@@ -97,16 +97,19 @@ struct Net : torch::nn::Module {
   torch::nn::AdaptiveAvgPool2d avgpool{nullptr};
 };
 
+TORCH_MODULE(Net);
+
 int main() {
   // Create a new Net.
 
   int num_classes = 1000;
   int input_channels = 3;
   auto size = {224, 224};
-  auto net = Net(input_channels, num_classes, size, VGG16);
-  auto result = net.forward(net.gen_random_input());
+  auto net =
+      std::make_shared<NetImpl>(input_channels, num_classes, size, VGG16);
+  auto result = net->forward(net->gen_random_input());
 
-  auto vgg_13 = Net(input_channels, num_classes, size, VGG13);
-  result = vgg_13.forward(net.gen_random_input());
+  net = std::make_shared<NetImpl>(input_channels, num_classes, size, VGG13);
+  result = net->forward(net->gen_random_input());
   assert(result.sizes()[1] == num_classes);
 }
