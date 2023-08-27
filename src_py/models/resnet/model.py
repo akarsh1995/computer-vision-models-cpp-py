@@ -3,6 +3,60 @@ import torch.nn as nn
 from torch.nn.functional import relu
 
 
+class CommonBlock(nn.Module):
+    def __init__(self, output_channel, block_channel, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.conv1 = nn.Conv2d(output_channel, block_channel, kernel_size=1, stride=1)
+        self.conv2 = nn.Conv2d(
+            block_channel, block_channel, kernel_size=3, stride=1, padding=1
+        )
+        self.conv3 = nn.Conv2d(block_channel, output_channel, kernel_size=1, stride=1)
+
+    def forward(self, x):
+        return relu(self.conv3(self.conv2(self.conv1(x))) + x)
+
+
+class BlockRep(nn.Module):
+    def __init__(
+        self,
+        input_channel: int,
+        block_channel: int,
+        output_channel: int,
+        first_layer_center_conv_stride: int,
+        repetitions: int = 1,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.upsampling_layer = nn.Conv2d(
+            input_channel,
+            output_channel,
+            kernel_size=3,
+            stride=first_layer_center_conv_stride,
+            padding=1,
+        )
+        self.b1_conv1 = nn.Conv2d(input_channel, block_channel, kernel_size=1, stride=1)
+        self.b1_conv2 = nn.Conv2d(
+            block_channel,
+            block_channel,
+            kernel_size=3,
+            stride=first_layer_center_conv_stride,
+            padding=1,
+        )
+        self.b1_conv3 = nn.Conv2d(
+            block_channel, output_channel, kernel_size=1, stride=1
+        )
+
+        self.seq = nn.Sequential()
+        for _ in range(1, repetitions):
+            self.seq.append(CommonBlock(output_channel, block_channel))
+
+    def forward(self, x):
+        upsampled = self.upsampling_layer(x)
+        x = torch.relu(self.b1_conv3(self.b1_conv2(self.b1_conv1(x))) + upsampled)
+        return self.seq(x)
+
+
 def main():
     x = torch.randn((1, 3, 224, 224))
 
@@ -10,108 +64,37 @@ def main():
     maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
     x = maxpool(conv(x))
 
-    upsampling_layer = nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=1)
-    upsampled = upsampling_layer(x)
-    conv1 = nn.Conv2d(64, 64, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(64, 256, kernel_size=1, stride=1)
-    x = torch.relu(conv3(conv2(conv1(x))) + upsampled)
-    print(x.shape)
-    conv1 = nn.Conv2d(256, 64, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(64, 256, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(256, 64, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(64, 256, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
+    first_layer_center_conv_stride = 1
+    input_channel = 64
+    block_channel = 64
+    output_channel = block_channel * 4
+    # block channel
+
+    b = BlockRep(
+        input_channel,
+        block_channel,
+        output_channel,
+        first_layer_center_conv_stride,
+        repetitions=3,
+    )
+
+    x = b(x)
     print(x.shape)
 
-    upsampling_layer = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)
-    upsampled = upsampling_layer(x)
-    conv1 = nn.Conv2d(256, 128, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1)
-    conv3 = nn.Conv2d(128, 512, kernel_size=1, stride=1)
-    x = torch.relu(conv3(conv2(conv1(x))) + upsampled)
-    print(x.shape)
-    conv1 = nn.Conv2d(512, 128, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(128, 512, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(512, 128, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(128, 512, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(512, 128, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(128, 512, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
+    first_layer_center_conv_stride = 2
+    input_channel = block_channel * 4  # 64 * 4
+    block_channel = block_channel * 2  # 64 * 2
+    output_channel = block_channel * 4  # 64 * 2 * 4
 
-    upsampling_layer = nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1)
-    upsampled = upsampling_layer(x)
-    conv1 = nn.Conv2d(512, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    x = torch.relu(conv3(conv2(conv1(x))) + upsampled)
-    print(x.shape)
-    conv1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(1024, 256, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(256, 1024, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
+    b = BlockRep(
+        input_channel,
+        block_channel,
+        output_channel,
+        first_layer_center_conv_stride,
+        repetitions=4,
+    )
 
-    upsampling_layer = nn.Conv2d(1024, 2048, kernel_size=3, stride=2, padding=1)
-    upsampled = upsampling_layer(x)
-    conv1 = nn.Conv2d(1024, 512, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=2, padding=1)
-    conv3 = nn.Conv2d(512, 2048, kernel_size=1, stride=1)
-    x = torch.relu(conv3(conv2(conv1(x))) + upsampled)
-    print(x.shape)
-    conv1 = nn.Conv2d(2048, 512, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(512, 2048, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
-    print(x.shape)
-    conv1 = nn.Conv2d(2048, 512, kernel_size=1, stride=1)
-    conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-    conv3 = nn.Conv2d(512, 2048, kernel_size=1, stride=1)
-    previous = x
-    x = relu(conv3(conv2(conv1(x))) + previous)
+    x = b(x)
     print(x.shape)
 
 
