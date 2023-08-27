@@ -1,3 +1,4 @@
+from typing import List
 import torch
 import torch.nn as nn
 from torch.nn.functional import relu
@@ -6,17 +7,27 @@ from torch.nn.functional import relu
 class CommonBlock(nn.Module):
     def __init__(self, output_channel, block_channel, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.conv1 = nn.Conv2d(output_channel, block_channel, kernel_size=1, stride=1)
-        self.conv2 = nn.Conv2d(
-            block_channel, block_channel, kernel_size=3, stride=1, padding=1
+        self.block = nn.Sequential()
+        self.block.extend(
+            [
+                nn.Conv2d(output_channel, block_channel, kernel_size=1, stride=1),
+                nn.BatchNorm2d(block_channel),
+                nn.ReLU(),
+                nn.Conv2d(
+                    block_channel, block_channel, kernel_size=3, stride=1, padding=1
+                ),
+                nn.BatchNorm2d(block_channel),
+                nn.ReLU(),
+                nn.Conv2d(block_channel, output_channel, kernel_size=1, stride=1),
+                nn.BatchNorm2d(output_channel),
+            ]
         )
-        self.conv3 = nn.Conv2d(block_channel, output_channel, kernel_size=1, stride=1)
 
     def forward(self, x):
-        return relu(self.conv3(self.conv2(self.conv1(x))) + x)
+        return relu(self.block(x) + x)
 
 
-class BlockRep(nn.Module):
+class BlockGroup(nn.Module):
     def __init__(
         self,
         input_channel: int,
@@ -35,16 +46,23 @@ class BlockRep(nn.Module):
             stride=first_layer_center_conv_stride,
             padding=1,
         )
-        self.b1_conv1 = nn.Conv2d(input_channel, block_channel, kernel_size=1, stride=1)
-        self.b1_conv2 = nn.Conv2d(
-            block_channel,
-            block_channel,
-            kernel_size=3,
-            stride=first_layer_center_conv_stride,
-            padding=1,
-        )
-        self.b1_conv3 = nn.Conv2d(
-            block_channel, output_channel, kernel_size=1, stride=1
+        self.first_block = nn.Sequential(
+            *[
+                nn.Conv2d(input_channel, block_channel, kernel_size=1, stride=1),
+                nn.BatchNorm2d(block_channel),
+                nn.ReLU(),
+                nn.Conv2d(
+                    block_channel,
+                    block_channel,
+                    kernel_size=3,
+                    stride=first_layer_center_conv_stride,
+                    padding=1,
+                ),
+                nn.BatchNorm2d(block_channel),
+                nn.ReLU(),
+                nn.Conv2d(block_channel, output_channel, kernel_size=1, stride=1),
+                nn.BatchNorm2d(output_channel),
+            ]
         )
 
         self.seq = nn.Sequential()
@@ -52,50 +70,52 @@ class BlockRep(nn.Module):
             self.seq.append(CommonBlock(output_channel, block_channel))
 
     def forward(self, x):
+        # for every first block, upsampling needs to be done to propogate values to subsequent blocks
         upsampled = self.upsampling_layer(x)
-        x = torch.relu(self.b1_conv3(self.b1_conv2(self.b1_conv1(x))) + upsampled)
+        x = torch.relu(self.first_block(x) + upsampled)
         return self.seq(x)
+
+
+class ResNet50(nn.Module):
+    def __init__(self, repetitions: List[int], *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.conv = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.block_groups = nn.Sequential()
+
+        first_layer_center_conv_stride = 1
+        input_channel = 64
+        block_channel = 64
+        output_channel = block_channel * 4
+
+        for r in repetitions:
+            self.block_groups.append(
+                BlockGroup(
+                    input_channel,
+                    block_channel,
+                    output_channel,
+                    first_layer_center_conv_stride,
+                    r,
+                )
+            )
+
+            first_layer_center_conv_stride = 2
+            input_channel = output_channel
+            block_channel = block_channel * 2  # 64 * 2
+            output_channel = block_channel * 4  # 64 * 2 * 4
+
+    def forward(self, x):
+        x = self.maxpool(self.conv(x))
+        x = self.block_groups(x)
+        return x
 
 
 def main():
     x = torch.randn((1, 3, 224, 224))
 
-    conv = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3)
-    maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-    x = maxpool(conv(x))
-
-    first_layer_center_conv_stride = 1
-    input_channel = 64
-    block_channel = 64
-    output_channel = block_channel * 4
-    # block channel
-
-    b = BlockRep(
-        input_channel,
-        block_channel,
-        output_channel,
-        first_layer_center_conv_stride,
-        repetitions=3,
-    )
-
-    x = b(x)
-    print(x.shape)
-
-    first_layer_center_conv_stride = 2
-    input_channel = block_channel * 4  # 64 * 4
-    block_channel = block_channel * 2  # 64 * 2
-    output_channel = block_channel * 4  # 64 * 2 * 4
-
-    b = BlockRep(
-        input_channel,
-        block_channel,
-        output_channel,
-        first_layer_center_conv_stride,
-        repetitions=4,
-    )
-
-    x = b(x)
-    print(x.shape)
+    r50 = ResNet50(repetitions=[3, 4, 6, 3])
+    print(r50(x).shape)
 
 
 if __name__ == "__main__":
