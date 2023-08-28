@@ -40,12 +40,15 @@ class BlockGroup(nn.Module):
         **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.downsampling_layer = nn.Conv2d(
-            input_channel,
-            output_channel,
-            kernel_size=3,
-            stride=first_layer_center_conv_stride,
-            padding=1,
+        self.downsampling_layer = nn.Sequential(
+            nn.Conv2d(
+                input_channel,
+                output_channel,
+                kernel_size=1,
+                stride=first_layer_center_conv_stride,
+                bias=False,
+            ),
+            nn.BatchNorm2d(output_channel),
         )
         self.first_block = nn.Sequential(
             *[
@@ -75,9 +78,9 @@ class BlockGroup(nn.Module):
             self.seq.append(CommonBlock(output_channel, block_channel))
 
     def forward(self, x):
-        # for every first block, upsampling needs to be done to propogate values to the next block
-        upsampled = self.downsampling_layer(x)
-        x = torch.relu(self.first_block(x) + upsampled)
+        # for every first block, downsampling needs to be done to propogate values to the next block
+        downsampled = self.downsampling_layer(x)
+        x = torch.relu(self.first_block(x) + downsampled)
         return self.seq(x)
 
 

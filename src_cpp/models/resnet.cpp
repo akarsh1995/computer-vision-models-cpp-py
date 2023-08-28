@@ -47,10 +47,13 @@ TORCH_MODULE(CommonBlock);
 struct BlockGroupImpl : torch::nn::Module {
   BlockGroupImpl(int input_channel, int block_channel, int output_channel,
                  int first_layer_center_conv_stride, int repetitions = 1)
-      : downsampling_layer(torch::nn::Conv2d(
-            torch::nn::Conv2dOptions(input_channel, output_channel, 3)
-                .stride(first_layer_center_conv_stride)
-                .padding(1))),
+      : downsampling_layer(torch::nn::Sequential(
+            torch::nn::Conv2d(
+                torch::nn::Conv2dOptions(input_channel, output_channel, 1)
+                    .stride(first_layer_center_conv_stride)
+                    .bias(false)),
+            torch::nn::BatchNorm2d(
+                torch::nn::BatchNorm2dOptions(output_channel)))),
 
         first_block(torch::nn::Sequential(
             torch::nn::Conv2d(
@@ -97,7 +100,7 @@ struct BlockGroupImpl : torch::nn::Module {
 
   torch::nn::Sequential first_block{nullptr};
   torch::nn::Sequential seq{nullptr};
-  torch::nn::Conv2d downsampling_layer{nullptr};
+  torch::nn::Sequential downsampling_layer{nullptr};
 };
 
 TORCH_MODULE(BlockGroup);
