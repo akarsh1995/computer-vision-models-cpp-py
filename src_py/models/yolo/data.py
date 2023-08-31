@@ -135,7 +135,3 @@ def create_target_vec(
             ]
         )
     return target
-
-
-if __name__ == "__main__":
-    # create_target_vec(7, 20, [[1, 0.524, 0.5735294117647058, 0.836, 0.753393665158371]])
