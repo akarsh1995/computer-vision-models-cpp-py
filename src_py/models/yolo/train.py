@@ -1,9 +1,10 @@
 from pathlib import Path
-from torch.autograd._functions import torch
-from loss import loss_fn
+from .loss import loss_fn
 from torch.utils.data import DataLoader
-from model import Yolo
-from data import VocDataset
+from .model import Yolo
+from .data import VocDataset
+import torch
+
 
 import torchvision.transforms as T
 

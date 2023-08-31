@@ -2,7 +2,7 @@ from torch import concat
 from torch.autograd._functions import torch
 from torch.functional import Tensor
 
-from utils import calculate_ious
+from .utils import calculate_ious
 
 
 def loss_fn(
