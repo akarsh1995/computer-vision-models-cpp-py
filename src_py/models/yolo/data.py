@@ -124,7 +124,7 @@ def create_target_vec(
         k = torch.nn.functional.one_hot(
             torch.tensor(int(class_)), num_classes=n_classes
         )
-        target[x_dim, y_dim, :] = torch.concat(
+        target[y_dim, x_dim, :] = torch.concat(
             [
                 k,
                 torch.tensor([1.0]),
