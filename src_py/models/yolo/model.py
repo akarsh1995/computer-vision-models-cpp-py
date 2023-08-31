@@ -1,4 +1,3 @@
-from torch.functional import Tensor
 from torch.nn import BatchNorm2d, Conv2d, Flatten, MaxPool2d
 import torch.nn as nn
 import torch
@@ -66,17 +65,11 @@ class Yolo(nn.Module):
                 4096,
                 n_cells_per_row * n_cells_per_row * (n_classes + 5 * n_bbox_predictors),
             ),
+            nn.ReLU(),
         )
 
     def forward(self, x):
-        return self.layers(x).view(
-            (
-                -1,
-                (self.n_classes + 5 * self.n_bbox_predictors),
-                self.n_cells_per_row,
-                self.n_cells_per_row,
-            )
-        )
+        return self.layers(x)
 
 
 if __name__ == "__main__":
