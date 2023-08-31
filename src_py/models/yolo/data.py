@@ -125,7 +125,7 @@ def create_target_vec(
         k = torch.nn.functional.one_hot(
             torch.tensor(int(class_)), num_classes=n_classes
         )
-        target[*which_cell, :] = torch.concat(
+        target[which_cell[0], which_cell[1] :] = torch.concat(
             [
                 k,
                 torch.tensor([1.0]),
@@ -139,17 +139,18 @@ def create_target_vec(
 
 
 if __name__ == "__main__":
-    for image, labels in VocDataset(
-        Path("data/train.csv"),
-        transform=torch.nn.Sequential(
-            *[
-                T.Resize((448, 448), antialias=True),
-                T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ]
-        ),
-    ):
-        print(image, labels.shape)
+    # for image, labels in VocDataset(
+    #     Path("data/train.csv"),
+    #     transform=torch.nn.Sequential(
+    #         *[
+    #             T.Resize((448, 448), antialias=True),
+    #             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    #         ]
+    #     ),
+    # ):
+    #     print(image, labels.shape)
 
-    csv_content = read_csv(Path("data/train.csv"))
-    img_file, label_file = csv_content[0]
-    im_show(label_file=label_file, image_file=img_file)
+    # csv_content = read_csv(Path("data/train.csv"))
+    # img_file, label_file = csv_content[0]
+    # im_show(label_file=label_file, image_file=img_file)
+    create_target_vec(7, 20, [[9, 0.2, 0.2, 0.5, 0.4]])
