@@ -115,17 +115,16 @@ def create_target_vec(
     for obj in objects:
         one_cell_width = 1 / imaginary_divisions
         class_, x, y, w, h = map(float, obj)
-        i = int(y // one_cell_width)
-        j = int(x // one_cell_width)
-        which_cell = (i, j)
-        cell_origin = (one_cell_width * i, one_cell_width * j)
+        y_dim = int(y // one_cell_width)
+        x_dim = int(x // one_cell_width)
+        cell_origin = (one_cell_width * x_dim, one_cell_width * y_dim)
         wrt_cell = ((x - cell_origin[0]) / one_cell_width), (
             (y - cell_origin[1]) / one_cell_width
         )  # ratio wrt to the cell
         k = torch.nn.functional.one_hot(
             torch.tensor(int(class_)), num_classes=n_classes
         )
-        target[which_cell[0], which_cell[1] :] = torch.concat(
+        target[x_dim, y_dim, :] = torch.concat(
             [
                 k,
                 torch.tensor([1.0]),
@@ -139,18 +138,4 @@ def create_target_vec(
 
 
 if __name__ == "__main__":
-    # for image, labels in VocDataset(
-    #     Path("data/train.csv"),
-    #     transform=torch.nn.Sequential(
-    #         *[
-    #             T.Resize((448, 448), antialias=True),
-    #             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    #         ]
-    #     ),
-    # ):
-    #     print(image, labels.shape)
-
-    # csv_content = read_csv(Path("data/train.csv"))
-    # img_file, label_file = csv_content[0]
-    # im_show(label_file=label_file, image_file=img_file)
-    create_target_vec(7, 20, [[9, 0.2, 0.2, 0.5, 0.4]])
+    # create_target_vec(7, 20, [[1, 0.524, 0.5735294117647058, 0.836, 0.753393665158371]])
